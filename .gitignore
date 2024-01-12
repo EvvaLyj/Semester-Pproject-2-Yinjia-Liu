@@ -1,0 +1,21 @@
+wandb/ 
+backup/ 
+NO SEED EVALUATION/ 
+NO SEED SHELL/ 
+datasets/ 
+SEED 229/ 
+Seed17/
+Seed314/ 
+slurm/
+__pycache__/ 
+feature_eval/folder1/
+feature_eval/folder2/
+feature_eval/folder3/
+feature_eval/folder4/
+feature_eval/slurm/
+feature_eval/wandb/
+feature_eval/data/
+!feature_eval/run_eval.sh
+*.txt 
+*.sh 
+*.yml
