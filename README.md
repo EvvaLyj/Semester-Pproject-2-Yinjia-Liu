@@ -1,4 +1,14 @@
-# Semester-project-2023
+# Semester-project-2023 
+
+# Introduction
+
+
+# Installation
+``
+conda env create --name simclr --file env.yml
+conda activate simclr
+``
+
 # File Instruction
 Python files 
 * simclr.py: Here is the training process for the encoder.
@@ -13,4 +23,4 @@ There are four folders.
 * models: model of the encoder (ResNet).
 * feature_eval: Linear evaluation for the pre-trained encoder.
 # How to implement the experiments?
-Create a `tests` folder under C disk (if using another path, please modify the `filepath` in each ipynb file of folder `Experiments`). Then run the ipynb files in folder `Experiments` on Jupyter notebook. 
+<!-- Create a `tests` folder under C disk (if using another path, please modify the `filepath` in each ipynb file of folder `Experiments`). Then run the ipynb files in folder `Experiments` on Jupyter notebook.  -->
