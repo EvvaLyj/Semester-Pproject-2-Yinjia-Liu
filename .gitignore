@@ -16,6 +16,6 @@ feature_eval/slurm/
 feature_eval/wandb/
 feature_eval/data/
 !feature_eval/run_eval.sh
-*.txt 
+# *.txt 
 *.sh 
-*.yml
+# *.yml
