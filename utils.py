@@ -71,7 +71,7 @@ def dataset_train_fft(args):
 
 
 def dataset_train_fftB(args):
-    #prepare datasets for train_fft
+    #prepare datasets for train_fftB
     dataset = ContrastiveLearningDataset(args.data, args.aug_type, args=args)
     train_dataset = dataset.get_dataset(args.dataset_name, args.n_views, args.prob_transform)
     train_loader = torch.utils.data.DataLoader(

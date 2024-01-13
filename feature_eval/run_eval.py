@@ -1,3 +1,6 @@
+"""
+Linear evaluation (training the last fc layer).
+"""
 import argparse
 import torch 
 import sys
@@ -17,14 +20,10 @@ parser.add_argument('--eval-epochs', default=100, type=int, metavar='N',
 parser.add_argument('--eval-batch-size', default=256, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256)')
-# parser.add_argument('-ckp', '--checkpoint-file-name', default='checkpoint_0040.pth.tar', type=str,
-#                     metavar='C',
-#                     help='checkpoint file to load in current directory')
 parser.add_argument('--eval-download', default=False, type=bool,
                     help='download the dataset')
 parser.add_argument('--projectname', type=str)
-
-parser.add_argument('--folder', type=str)
+parser.add_argument('--folder', type=str, help='folder containing the configuration file and the checkpoint')
 
 def main():
 

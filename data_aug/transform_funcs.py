@@ -1,20 +1,32 @@
+"""Custom transform functions."""
+
 import torch
 import numpy as np
 from torch import nn
-from data_aug.transform_mixer_funcs import *
+from data_aug.Interpolants import *
+
+def resize_to_power_of_2(img, defined_size=None, mode='bilinear'):
+    """
+    Ceil (round) the size to the power of 2 and interpolate the img pixels
+    """
+    original_size = img.shape[-2:]
+    if defined_size is None:
+        power_of_2 = 2 ** torch.ceil(torch.log2(torch.max(torch.tensor(original_size, dtype=torch.float32))))
+    else:
+        power_of_2 = 2 ** torch.ceil(torch.log2(torch.max(torch.tensor(defined_size, dtype=torch.float32))))
+    new_size = (int(power_of_2), int(power_of_2))
+    
+    return torch.nn.functional.interpolate(img.unsqueeze(0), size=new_size, mode=mode, align_corners=True).squeeze(0), original_size
 
 
 def FFT_img(image, interp="bilinear"):
-    # Resize the image such that the size is the power of 2
-    # Return the magtitude spectrum and phase spectrum 
-
-    # input size: #channels * height * width
-
+    """
+    FFT : image -> amplitude spectrum and phase spectrum 
+    image size: #channels * height * width
+    """
     image = image.to(torch.float32)
-    # image_resized, original_size = resize_to_power_of_2(image, mode=interp)
-    # print(f'execute resizing.\n original size:{original_size}, new size: {image_resized.shape[-2:]}')
-    image_resized = image
-    original_size = image.shape[-2:]
+    image_resized, original_size = resize_to_power_of_2(image, mode="bilinear")
+    # image_resized, original_size = image, img.shape[-2:]
 
     fft_img_amp = torch.zeros_like(image_resized)
     fft_img_phs = torch.zeros_like(image_resized)
@@ -24,26 +36,27 @@ def FFT_img(image, interp="bilinear"):
         fft_img_amp[c] = torch.abs(fft_img)
         fft_img_phs[c] = torch.angle(fft_img)
         
-    return fft_img_amp, fft_img_phs
+    return fft_img_amp, fft_img_phs, original_size
+
 def IFFT_img(fft_img_amp, fft_img_phs, original_size, interp='bilinear'):
-    # original size: height * weight 
-    # fft_img_amp: #channels * fft_height * fft_weight
+    """
+    IFFT :amplitude spectrum and phase spectrum -> image
+    image size: #channels * height * width
+    """
+
     ifft_img = torch.zeros_like(fft_img_amp)
     for c in range(fft_img_amp.shape[0]):
         fft = fft_img_amp[c] * torch.exp(1j*fft_img_phs[c])
         ifft_img[c] = torch.fft.ifftn(torch.fft.ifftshift(fft)).real
-        # ifft_img[c] = np.abs(torch.fft.ifftn(torch.fft.ifftshift(fft)))
+    
     ifft_img = torch.nn.functional.interpolate(ifft_img.unsqueeze(0), 
         size=original_size, mode=interp, align_corners=True).squeeze(0)   
     return ifft_img
 
 
 def gaussian_kernel(size=5, sigma=1.):
-    """\
-    creates gaussian kernel with side length `size` and a sigma of `sigma`
     """
-    """
-    # https://stackoverflow.com/questions/29731726/how-to-calculate-a-gaussian-kernel-matrix-efficiently-in-numpy
+    Create a Gaussian image with side length `size` and a varinace of `sigma^2`
     """
     ax = np.linspace(-(size - 1) / 2., (size - 1) / 2., size)
     gauss = np.exp(-0.5 * np.square(ax) / np.square(sigma))
@@ -51,7 +64,7 @@ def gaussian_kernel(size=5, sigma=1.):
     return kernel / np.sum(kernel)
 
 
-def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a', gma_v=0, g_sigma=5, **args):
+def Gaussian_mix_up(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a', gma_v=0, g_sigma=5, **args):
 
     vmax = torch.max(img_tensor)
     vmin = torch.min(img_tensor)
@@ -61,15 +74,15 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
     image_tensor = img_tensor.float()#image tensor --> FloatTensor 
 
     # FFT
-    fft_image_amp, fft_image_phs = FFT_img(image_tensor);results.update({'fft_amp':fft_image_amp,'fft_phs':fft_image_phs})
+    fft_image_amp, fft_image_phs, original_size = FFT_img(image_tensor)
+    results.update({'fft_amp':fft_image_amp,'fft_phs':fft_image_phs})
     
     if(mode1 == 'Gaussian_mix'):
 
         if(mode2 =='p'):
             
             if not np.isclose(args['coeff_phs'],0):
-                g_img_phs = torch.tensor(gaussian_kernel(size=image_tensor.shape[-1], sigma=g_sigma))
-                # g_img_phs = g_img_phs*torch.sum(fft_image_phs) 
+                g_img_phs = torch.tensor(gaussian_kernel(size=fft_image_phs.shape[-1], sigma=g_sigma))
                 g_img_phs = g_img_phs.repeat(n_channel,1,1) # its dim aligns with orignal img
                 results.update({'g_phs':g_img_phs})
                 fft_img_mix_phs = (1-args['coeff_phs'])*fft_image_phs+ args['coeff_phs']*g_img_phs
@@ -77,7 +90,7 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                 fft_img_mix_phs = fft_image_phs
         
             results.update({'fft_mix_g_phs':fft_img_mix_phs})
-            ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, image_tensor.shape[-2:])
+            ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, original_size)
             results.update({'output':ifft_img_mix_phs})
         
         
@@ -86,7 +99,7 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
             # version 0: mix directly on the amp 
             if (gma_v ==0): 
                 if not np.isclose(args['coeff_amp'],0):
-                    g_img_amp = torch.tensor(gaussian_kernel(size=image_tensor.shape[-1], sigma=g_sigma))
+                    g_img_amp = torch.tensor(gaussian_kernel(size=fft_image_amp.shape[-1], sigma=g_sigma))
                     g_img_amp = g_img_amp.repeat(n_channel,1,1) # its dim aligns with orignal img
                     results.update({'g_amp':g_img_amp})
                     fft_img_mix_amp = (1-args['coeff_amp'])*fft_image_amp + args['coeff_amp']*g_img_amp
@@ -94,12 +107,13 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                     fft_img_mix_amp = fft_image_amp
 
                 results.update({'fft_mix_g_amp':fft_img_mix_amp})
-                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
                 results.update({'output':ifft_img_mix_amp})
+
             # version 1: mix directly on the amp, and keep the gaussian image the same energy as the amp 
             if (gma_v ==1): 
                 if not np.isclose(args['coeff_amp'],0):
-                    g_img_amp = torch.tensor(gaussian_kernel(size=image_tensor.shape[-1], sigma=g_sigma))
+                    g_img_amp = torch.tensor(gaussian_kernel(size=fft_image_amp.shape[-1], sigma=g_sigma))
                     g_img_energy = torch.sum(g_img_amp**2)
                     fft_img_energy = torch.sum(fft_image_amp**2)
                     g_img_amp = g_img_amp*torch.sqrt(fft_img_energy/(n_channel*g_img_energy)) #--------------------------------------add this line
@@ -110,12 +124,13 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                     fft_img_mix_amp = fft_image_amp
 
                 results.update({'fft_mix_g_amp':fft_img_mix_amp})
-                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
                 results.update({'output':ifft_img_mix_amp})
+
             # version 2: mix on the log amp 
             if (gma_v ==2): 
                 if not np.isclose(args['coeff_amp'],0):
-                    g_img_amp = torch.tensor(gaussian_kernel(size=image_tensor.shape[-1], sigma=g_sigma))
+                    g_img_amp = torch.tensor(gaussian_kernel(size=fft_image_amp.shape[-1], sigma=g_sigma))
                     g_img_amp = g_img_amp.repeat(n_channel,1,1) # its dim aligns with orignal img
                     results.update({'g_amp':g_img_amp})
                     fft_img_mix_amp = torch.exp((1-args['coeff_amp'])*torch.log(fft_image_amp) + args['coeff_amp']*g_img_amp)# -------the change is here
@@ -123,12 +138,12 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                     fft_img_mix_amp = fft_image_amp
 
                 results.update({'fft_mix_g_amp':fft_img_mix_amp})
-                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
                 results.update({'output':ifft_img_mix_amp})
             # version 3: version 0-> parseval
             if (gma_v ==3): 
                 if not np.isclose(args['coeff_amp'],0):
-                    g_img_amp = torch.tensor(gaussian_kernel(size=image_tensor.shape[-1], sigma=g_sigma))
+                    g_img_amp = torch.tensor(gaussian_kernel(size=fft_image_amp.shape[-1], sigma=g_sigma))
                     g_img_amp = g_img_amp.repeat(n_channel,1,1) # its dim aligns with orignal img
                     results.update({'g_amp':g_img_amp})
                     fft_img_amp_squared, g_img_amp_squared = fft_image_amp**2, g_img_amp**2
@@ -137,12 +152,13 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                     fft_img_mix_amp = fft_image_amp
 
                 results.update({'fft_mix_g_amp':fft_img_mix_amp})
-                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
                 results.update({'output':ifft_img_mix_amp})
+
             # version 4: version 1-> parseval
             if (gma_v ==4): 
                 if not np.isclose(args['coeff_amp'],0):
-                    g_img_amp = torch.tensor(gaussian_kernel(size=image_tensor.shape[-1], sigma=g_sigma))
+                    g_img_amp = torch.tensor(gaussian_kernel(size=fft_image_amp.shape[-1], sigma=g_sigma))
                     g_img_energy = torch.sum(g_img_amp**2)
                     fft_img_energy = torch.sum(fft_image_amp**2)
                     g_img_amp = g_img_amp*torch.sqrt(fft_img_energy/g_img_energy) 
@@ -154,8 +170,9 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                     fft_img_mix_amp = fft_image_amp
 
                 results.update({'fft_mix_g_amp':fft_img_mix_amp})
-                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
                 results.update({'output':ifft_img_mix_amp})
+
             # version 5: version 1-> norm and denorm 
             if (gma_v ==5): 
                 if not np.isclose(args['coeff_amp'],0):
@@ -164,7 +181,7 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                     fft_image_amp_std = torch.std(fft_image_amp)
                     fft_image_amp_norm = (fft_image_amp-fft_image_amp_mean)/fft_image_amp_std
                     # mix with gaussian image
-                    g_img_amp = torch.tensor(gaussian_kernel(size=image_tensor.shape[-1], sigma=g_sigma))
+                    g_img_amp = torch.tensor(gaussian_kernel(size=fft_image_amp_norm.shape[-1], sigma=g_sigma))
                     g_img_energy = torch.sum(g_img_amp**2)
                     fft_img_energy = torch.sum(fft_image_amp_norm**2)
                     g_img_amp = g_img_amp*torch.sqrt(fft_img_energy/g_img_energy) 
@@ -177,24 +194,24 @@ def freq_process(img_tensor, interp='bilinear', mode1='Gaussian_mix', mode2='a',
                     fft_img_mix_amp = fft_image_amp
 
                 results.update({'fft_mix_g_amp':fft_img_mix_amp})
-                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+                ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
                 results.update({'output':ifft_img_mix_amp})
 
 
-    results_output_bound = bound_result(vmin, vmax, results['output'])
+    results_output_bound = torch.clamp(results['output'], vmin, vmax)
     results.update({'output':results_output_bound})
     return results
    
-def gau_mix_difference(img_tensor,coeff_amp,norm=False):
+def gau_mix_difference(img_tensor,coeff_amp):
     # g(t)-g(1)
-    results_t = freq_process(img_tensor, norm=norm, mode1="Gaussian_mix", mode2='a', coeff_amp=coeff_amp)
-    results_1 = freq_process(img_tensor, norm=norm, mode1="Gaussian_mix", mode2='a', coeff_amp=1)
+    results_t = Gaussian_mix_up(img_tensor, mode1="Gaussian_mix", mode2='a', coeff_amp=coeff_amp)
+    results_1 = Gaussian_mix_up(img_tensor, mode1="Gaussian_mix", mode2='a', coeff_amp=1)
 
     results = results_t["output"]-results_1["output"]
 
     return results
 
-# all-channel mean
+# caculating mean of 3 channels 
 def stochastic_interpolant(img_tensor, mode, mode2, t):
     vmax = torch.max(img_tensor)
     vmin = torch.min(img_tensor)
@@ -204,7 +221,7 @@ def stochastic_interpolant(img_tensor, mode, mode2, t):
     image_tensor = img_tensor.float()#image tensor --> FloatTensor 
     
     # FFT: fft_image_amp, fft_image_phs have a shape of (n_channels, height, width)
-    fft_image_amp, fft_image_phs = FFT_img(image_tensor);results.update({'fft_amp':fft_image_amp,'fft_phs':fft_image_phs})
+    fft_image_amp, fft_image_phs, original_size = FFT_img(image_tensor);results.update({'fft_amp':fft_image_amp,'fft_phs':fft_image_phs})
     
     if mode2=='a':
     # amp interpolation
@@ -238,7 +255,7 @@ def stochastic_interpolant(img_tensor, mode, mode2, t):
             fft_img_mix_amp = fft_image_amp
 
         results.update({'fft_mix_amp':fft_img_mix_amp})
-        ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+        ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
         results.update({'output':ifft_img_mix_amp})
 
     elif mode2=='p':
@@ -285,14 +302,14 @@ def stochastic_interpolant(img_tensor, mode, mode2, t):
             fft_img_mix_phs = fft_image_phs
 
         results.update({'fft_mix_phs':fft_img_mix_phs})
-        ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, image_tensor.shape[-2:])
+        ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, original_size)
         results.update({'output':ifft_img_mix_phs})
 
-    results_output_bound = bound_result(vmin, vmax, results['output'])
+    results_output_bound = torch.clamp(results['output'], vmin, vmax)
     results.update({'output':results_output_bound})
     return results
 
-# 3-channel mean
+# caculating mean of 3 channels seperately
 def stochastic_interpolant_new(img_tensor, mode, mode2, t, **args):
 
     vmax = torch.max(img_tensor)
@@ -303,7 +320,7 @@ def stochastic_interpolant_new(img_tensor, mode, mode2, t, **args):
     image_tensor = img_tensor.float()#image tensor --> FloatTensor 
     
     # FFT: fft_image_amp, fft_image_phs have a shape of (n_channels, height, width)
-    fft_image_amp, fft_image_phs = FFT_img(image_tensor);results.update({'fft_amp':fft_image_amp,'fft_phs':fft_image_phs})
+    fft_image_amp, fft_image_phs, original_size = FFT_img(image_tensor);results.update({'fft_amp':fft_image_amp,'fft_phs':fft_image_phs})
     
     if mode2=='a':
         fft_img_mix_amp = torch.zeros_like(fft_image_amp)
@@ -332,7 +349,7 @@ def stochastic_interpolant_new(img_tensor, mode, mode2, t, **args):
             x0_mean = torch.mean(x0);x0_std = torch.std(x0)
 
             if(x0_std==0):
-                # if x0 has 0 std, do not interpolate (else there is NAN)! (very likely x0 is all-zero)
+                # if x0 has 0 std, do not interpolate!
                 if mode2=='a':
                     fft_img_mix_amp[c] = fft_image_amp[c]
                     continue
@@ -388,12 +405,12 @@ def stochastic_interpolant_new(img_tensor, mode, mode2, t, **args):
     # IFFT  
     if mode2 == 'a':
         results.update({'fft_mix_amp':fft_img_mix_amp})
-        ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, image_tensor.shape[-2:])
+        ifft_img_mix_amp = IFFT_img(fft_img_mix_amp, fft_image_phs, original_size)
         results.update({'output':ifft_img_mix_amp})
 
     elif mode2 == 'p':
         results.update({'fft_mix_phs':fft_img_mix_phs})
-        ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, image_tensor.shape[-2:])
+        ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, original_size)
         results.update({'output':ifft_img_mix_phs})
     elif mode2 =="p_hsv":
         #hsv->rgb
@@ -403,39 +420,22 @@ def stochastic_interpolant_new(img_tensor, mode, mode2, t, **args):
         fft_img_mix_phs = fft_img_mix_phs[0]*(2*torch.pi)-torch.pi
         results.update({'fft_mix_phs':fft_img_mix_phs})
         #ifft
-        ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, image_tensor.shape[-2:])
+        ifft_img_mix_phs = IFFT_img(fft_image_amp, fft_img_mix_phs, original_size)
         results.update({'output':ifft_img_mix_phs})
 
-    results_output_bound = bound_result(vmin, vmax, results['output'])
+    results_output_bound = torch.clamp(results['output'], vmin, vmax)
     results.update({'output':results_output_bound})
     return results
 
-def bound_result(img_min,img_max, xt):
-    # clip
-    out = torch.min(img_max,xt)
-    out = torch.max(img_min,out)
-
-    return out
 
 def bound_hsv_result(result_phs_hsv):
-    #h [0,1] periodicity
-    #s [0,1]
-    #v [0,1]
+    #h [0,1], s [0,1], v [0,1]
 
     result_phs_hsv[0,0] = result_phs_hsv[0,0]%1
-    result_phs_hsv[0,1]=torch.max(torch.zeros_like(result_phs_hsv[0,1]),result_phs_hsv[0,1])
-    result_phs_hsv[0,1]=torch.min(torch.ones_like(result_phs_hsv[0,1]),result_phs_hsv[0,1])
-    result_phs_hsv[0,2]=torch.max(torch.zeros_like(result_phs_hsv[0,2]),result_phs_hsv[0,2])
-    result_phs_hsv[0,2]=torch.min(torch.ones_like(result_phs_hsv[0,2]),result_phs_hsv[0,2])
+    result_phs_hsv[0,1]=torch.clamp(result_phs_hsv[0,1],0,1)
+    result_phs_hsv[0,2]=torch.clamp(result_phs_hsv[0,2],0,1)
 
     return result_phs_hsv
-
-# https://blog.csdn.net/Brikie/article/details/115086835
-"""
-Pytorch implementation of RGB convert to HSV, and HSV convert to RGB,
-RGB or HSV's shape: (B * C * H * W)
-RGB or HSV's range: [0, 1)
-"""
 
 
 class RGB_HSV(nn.Module):
@@ -467,7 +467,7 @@ class RGB_HSV(nn.Module):
 
     def hsv_to_rgb(self, hsv):
         h,s,v = hsv[:,0,:,:],hsv[:,1,:,:],hsv[:,2,:,:]
-        #对出界值的处理
+  
         h = h%1
         s = torch.clamp(s,0,1)
         v = torch.clamp(v,0,1)

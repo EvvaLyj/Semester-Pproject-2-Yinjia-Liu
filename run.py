@@ -14,8 +14,8 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch SimCLR')
 parser.add_argument('-data', metavar='DIR', default='./datasets',
                     help='path to dataset')
-parser.add_argument('-aug', '--aug-type', default='default', type=str,
-                    help='data augmentation type', choices=['default', 'none', 
+parser.add_argument('-aug', '--aug-type', default='none', type=str,
+                    help='data augmentation type', choices=['none', 
                                                             'amp_gm_v1', 'amp_gm_v1_control',
                                                             'amp_gm_v5', 
                                                             'amp_GED',
@@ -70,11 +70,10 @@ parser.add_argument('--use-simclr', default=0, type=int)
 parser.add_argument('--use-fftclr', default=1, type=int)
 parser.add_argument('--projectname', type=str)
 
-# if use aug_type xx_control, adjust the following hyperparameters
+# if use aug_type is xx_control, add the following hyperparameters
 parser.add_argument('--max-coeff-phs', type=float, default=0.5)
 parser.add_argument('--max-coeff-amp', type=float, default=0.5)
 
-parser.add_argument('--variantB', type=int, default=0)
 
 def main():
     args = parser.parse_args()

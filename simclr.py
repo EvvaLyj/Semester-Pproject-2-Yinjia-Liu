@@ -1,3 +1,13 @@
+"""
+A class that trains the encoder following the SimCLR[1]. 
+
+train_fft: Method A.
+train_fftB: Method B.
+
+Other functions:
+train_fft_load: Method A: loading the checkpoint network. (For out-of-time case)
+train_fftB_load: Method A: loading the checkpoint network. (For out-of-time case)
+"""
 import logging
 import os
 import sys
@@ -9,7 +19,6 @@ from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
 from utils import save_config_file, accuracy, save_checkpoint, wandb_run_name, set_seed
 
-# torch.manual_seed(0)
 
 class SimCLR(object):
 
@@ -38,15 +47,11 @@ class SimCLR(object):
         features = F.normalize(features, dim=1)
 
         similarity_matrix = torch.matmul(features, features.T)
-        # assert similarity_matrix.shape == (
-        #     self.args.n_views * self.args.batch_size, self.args.n_views * self.args.batch_size)
-        # assert similarity_matrix.shape == labels.shape
 
         # discard the main diagonal from both: labels and similarities matrix
         mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.device)
         labels = labels[~mask].view(labels.shape[0], -1)
         similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
-        # assert similarity_matrix.shape == labels.shape
 
         # select and combine multiple positives
         positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
@@ -60,66 +65,9 @@ class SimCLR(object):
         logits = logits / self.args.temperature
         return logits, labels
 
-    def train(self, train_loader):
-
-        scaler = GradScaler(enabled=self.args.fp16_precision)
-
-        # save config file
-        save_config_file(self.run.dir, self.args)
-        logging.info(f"config file is saved.")
-
-        n_iter = 0
-        logging.info(f"Start SimCLR training for {self.args.epochs} epochs.")
-        logging.info(f"Training with gpu: {self.args.disable_cuda}.")
-
-        for epoch_counter in range(self.args.epochs):
-            for images, _ in tqdm(train_loader):
-                images = torch.cat(images, dim=0)
-
-                images = images.to(self.args.device)
-
-                with autocast(enabled=self.args.fp16_precision):
-                    features = self.model(images)
-                    logits, labels = self.info_nce_loss(features)
-                    loss = self.criterion(logits, labels)
-
-                self.optimizer.zero_grad()
-
-                scaler.scale(loss).backward()
-
-                scaler.step(self.optimizer)
-                scaler.update()
-
-                if n_iter % self.args.log_every_n_steps == 0:
-                    top1, top5 = accuracy(logits, labels, topk=(1, 5))
-                    wandb.log({'loss':loss}, step=epoch_counter+1)
-                    wandb.log({'top1 accuracy':top1[0]}, step=epoch_counter+1)
-                    wandb.log({'top5 accuracy':top5[0]}, step=epoch_counter+1)
-                    wandb.log({'learning rate':self.scheduler.get_lr()[0]}, step=epoch_counter+1)
-                n_iter += 1
-
-            # save model checkpoints
-            if((epoch_counter+1)%200==0):
-                checkpoint_name = "exp_"+self.args.arch+"_"+self.args.aug_type+"_b_"+f"{self.args.batch_size}"+"_e_"+f"{epoch_counter+1}"+'_ckp.pth.tar'
-                save_checkpoint({
-                    'epoch': epoch_counter+1,
-                    'arch': self.args.arch,
-                    'state_dict': self.model.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                }, is_best=False, filename=os.path.join(self.run.dir, checkpoint_name))
-                logging.info(f"Epoch{epoch_counter+1}.Model checkpoint and metadata has been saved at {self.run.dir}.")
-
-            # warmup for the first 10 epochs
-            if epoch_counter >= 10:
-                self.scheduler.step()
-            logging.debug(f"Epoch: {epoch_counter+1}\tLoss: {loss}\tTop1 accuracy: {top1[0]}")
-
-        logging.info("Training has finished.")
-
-
-        wandb.finish()
 
     def train_fft(self, train_loader_simclr, train_loader_fftclr):
+        # Method A: 2 views for one image
 
         scaler = GradScaler(enabled=self.args.fp16_precision)
 
@@ -190,7 +138,7 @@ class SimCLR(object):
                 }, is_best=False, filename=os.path.join(self.run.dir, checkpoint_name))
                 logging.info(f"Epoch{epoch_counter+1}.Model checkpoint and metadata has been saved at {self.run.dir}.")
 
-            # warmup 
+            # Warmup 
             if epoch_counter >= self.args.warmup_epoch:
                 self.scheduler.step()
             logging.debug(f"Epoch: {epoch_counter+1}\tLoss: {loss}")
@@ -201,7 +149,7 @@ class SimCLR(object):
         wandb.finish()
 
     def train_fftB(self, train_loader):
-        #combination B: 4 views for one image
+        # Method B: 4 views for one image
 
         scaler = GradScaler(enabled=self.args.fp16_precision)
 
@@ -247,7 +195,7 @@ class SimCLR(object):
                 }, is_best=False, filename=os.path.join(self.run.dir, checkpoint_name))
                 logging.info(f"Epoch{epoch_counter+1}.Model checkpoint and metadata has been saved at {self.run.dir}.")
 
-            # warmup
+            # Warmup
             if epoch_counter >= self.args.warmup_epoch:
                 self.scheduler.step()
             logging.debug(f"Epoch: {epoch_counter+1}\tLoss: {loss}")
@@ -335,7 +283,7 @@ class SimCLR(object):
                 }, is_best=False, filename=os.path.join(self.run.dir, checkpoint_name))
                 logging.info(f"Epoch{epoch_counter+1}.Model checkpoint and metadata has been saved at {self.run.dir}.")
 
-            # # warmup 
+            # Warmup 
             if epoch_counter >= self.args.warmup_epoch:
                 self.scheduler.step()
             logging.debug(f"Epoch: {epoch_counter+1}\tLoss: {loss}")
@@ -398,7 +346,7 @@ class SimCLR(object):
                 }, is_best=False, filename=os.path.join(self.run.dir, checkpoint_name))
                 logging.info(f"Epoch{epoch_counter+1}.Model checkpoint and metadata has been saved at {self.run.dir}.")
 
-            # # warmup
+            # Warmup
             if epoch_counter >= self.args.warmup_epoch:
                 self.scheduler.step()
             logging.debug(f"Epoch: {epoch_counter+1}\tLoss: {loss}")

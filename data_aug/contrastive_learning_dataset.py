@@ -1,3 +1,20 @@
+"""
+A class that generates an augmented dataset. 
+
+Init parameters:
+
+root_folder: Data folder.
+aug_type: Augmentation method name.
+args: Arguments passed in.
+
+Functions:
+
+get_our_transform: Get the pipeline transforms applied to the dataset.
+standard_transform: The standard SimCLR transform.
+get_dataset: Apply the data augentation on the dataset and get the augmented dataset.
+ContrastiveLearningViewGenerator: Generating views for each image of the dataset.
+"""
+
 from torchvision.transforms import transforms
 from data_aug.gaussian_blur import GaussianBlur
 from torchvision import transforms, datasets
@@ -15,20 +32,9 @@ class ContrastiveLearningDataset:
         self.root_folder = root_folder
         self.aug_type = aug_type
         self.args = kwargs['args']
-    # @staticmethod
-    def get_simclr_pipeline_transform(self, size, s=1):
-        if(self.aug_type=="default"):
-            color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
-            data_transforms = transforms.Compose([
-                transforms.RandomResizedCrop(size=size),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomApply([color_jitter], p=0.8),
-                transforms.RandomGrayscale(p=0.2),
-                GaussianBlur(kernel_size=int(0.1 * size)),
-                transforms.ToTensor(),
-                transforms.Normalize(cifar10_mean, cifar10_std)
-                ])
-        elif(self.aug_type=="none"):
+        
+    def get_our_transform(self):
+        if(self.aug_type=="none"):
             data_transforms = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize(cifar10_mean, cifar10_std)
@@ -177,7 +183,8 @@ class ContrastiveLearningDataset:
                 ])
         return data_transforms
     
-    def get_simclr_transform(self, size, s=1):
+    def standard_transform(self, size, s=1):
+        # simclr standard transform s
         color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
         data_transforms = transforms.Compose([
             transforms.RandomResizedCrop(size=size),
@@ -186,25 +193,20 @@ class ContrastiveLearningDataset:
             transforms.RandomGrayscale(p=0.2),
             GaussianBlur(kernel_size=int(0.1 * size)),
             transforms.ToTensor(),
-            # transforms.Normalize(cifar10_mean, cifar10_std)
             ])
         return data_transforms
     
     def get_dataset(self, name, n_views, p):
         valid_datasets = {'cifar10': lambda: datasets.CIFAR10(self.root_folder, train=True,
                                                               transform=ContrastiveLearningViewGenerator(
-                                                                  self.get_simclr_pipeline_transform(32),
-                                                                   n_views, p, 
-                                                                   variantB=self.args.variantB,
-                                                                   base_transform_default=self.get_simclr_transform(32)),
-                                                                   
-                                                              download=False),
-
-                          'stl10': lambda: datasets.STL10(self.root_folder, split='unlabeled',
-                                                          transform=ContrastiveLearningViewGenerator(
-                                                              self.get_simclr_pipeline_transform(96),
-                                                              n_views, p),
-                                                          download=False)}
+                                                                  self.get_our_transform(),
+                                                                  n_views, 
+                                                                  p, 
+                                                                  variantB=self.args.variantB,
+                                                                  standard_transform=self.standard_transform(32)
+                                                                  ),
+                                                              download=False)
+                                                              }
 
         try:
             dataset_fn = valid_datasets[name]

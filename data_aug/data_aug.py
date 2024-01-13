@@ -1,16 +1,15 @@
+"""Custom transform classes."""
+
 from data_aug.transform_funcs import *
 import torch
 import numpy as np
 
-# np.random.seed(0)    
-
-# amp transform   
 class gaussian_mix(object):
     def __init__(self, coeff_amp):
         super(gaussian_mix, self).__init__()
         self.coeff_amp = coeff_amp
     def __call__(self, img_tensor):
-        results = freq_process(img_tensor,  mode1="Gaussian_mix", mode2='a', coeff_amp=self.coeff_amp)
+        results = Gaussian_mix_up(img_tensor,  mode1="Gaussian_mix", mode2='a', coeff_amp=self.coeff_amp)
         img_tensor_result = results['output'].float()
         return img_tensor_result 
 
@@ -19,7 +18,7 @@ class gaussian_mix_random_v1(object):
         super(gaussian_mix_random_v1, self).__init__()
     def __call__(self, img_tensor):
         self.coeff_amp = np.random.uniform()  # random coeff_amp in [0,1]
-        results = freq_process(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=1, coeff_amp=self.coeff_amp)
+        results = Gaussian_mix_up(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=1, coeff_amp=self.coeff_amp)
         img_tensor_result = results['output'].float()
         return img_tensor_result 
     def __repr__(self):
@@ -30,7 +29,7 @@ class gaussian_mix_random_v4(object):
         super(gaussian_mix_random_v4, self).__init__()
     def __call__(self, img_tensor):
         self.coeff_amp = np.random.uniform()  # random coeff_amp in [0,1]
-        results = freq_process(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=4, coeff_amp=self.coeff_amp)
+        results = Gaussian_mix_up(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=4, coeff_amp=self.coeff_amp)
         img_tensor_result = results['output'].float()
         return img_tensor_result 
     def __repr__(self):
@@ -41,7 +40,7 @@ class gaussian_mix_random_v5(object):
         super(gaussian_mix_random_v5, self).__init__()
     def __call__(self, img_tensor):
         self.coeff_amp = np.random.uniform()  # random coeff_amp in [0,1]
-        results = freq_process(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=5, coeff_amp=self.coeff_amp)
+        results = Gaussian_mix_up(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=5, coeff_amp=self.coeff_amp)
         img_tensor_result = results['output'].float()
         return img_tensor_result 
     def __repr__(self):
@@ -124,7 +123,7 @@ class gaussian_mix_random_v1_control(object):
         self.max_coeff_amp = max_coeff_amp
     def __call__(self, img_tensor):
         self.coeff_amp = np.random.uniform(0,self.max_coeff_amp)  # random coeff_amp in [0,max_coeff_amp]
-        results = freq_process(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=1, coeff_amp=self.coeff_amp)
+        results = Gaussian_mix_up(img_tensor,  mode1="Gaussian_mix", mode2='a', gma_v=1, coeff_amp=self.coeff_amp)
         img_tensor_result = results['output'].float()
         return img_tensor_result 
     def __repr__(self):

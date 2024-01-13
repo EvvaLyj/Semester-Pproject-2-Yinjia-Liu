@@ -14,17 +14,12 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch SimCLR')
 parser.add_argument('-data', metavar='DIR', default='./datasets',
                     help='path to dataset')
-parser.add_argument('-aug', '--aug-type', default='default', type=str,
-                    help='data augmentation type', choices=['default', 'none', 'noneB',
-                                                            'amp_gm_v1','amp_gm_v1B', 'amp_gm_v1_controlB',
-                                                            'amp_gm_v5', 
-                                                            'amp_GED',
+parser.add_argument('-aug', '--aug-type', default='noneB', type=str,
+                    help='data augmentation type', choices=['noneB',
+                                                            'amp_gm_v1B', 'amp_gm_v1_controlB',
                                                             'phs_TI_squareB','phs_TI_square_controlB',
-                                                            'phs_sig',
-                                                            'amp_gm_v1_phs_sig',
-                                                            'amp_gm_v1_phs_TI_square','amp_gm_v1_phs_TI_squareB','amp_gm_v1_phs_TI_square_controlB',
-                                                            'amp_gm_v4_phs_TI_square',
-                                                            'amp_GED_phs_TI_square'])
+                                                            'amp_gm_v1_phs_TI_squareB','amp_gm_v1_phs_TI_square_controlB'
+                                                            ])
 parser.add_argument('-dataset-name', default='stl10',
                     help='dataset name', choices=['stl10', 'cifar10'])
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
@@ -73,7 +68,8 @@ parser.add_argument('--projectname', type=str)
 parser.add_argument('--max-coeff-phs', type=float, default=0.5)
 parser.add_argument('--max-coeff-amp', type=float, default=0.5)
 
-parser.add_argument('--variantB', type=int, default=0)
+parser.add_argument('--variantB', help='If 1, use a variant architecture of B method.',
+                    type=int, default=0)
 
 def main():
     args = parser.parse_args()
