@@ -3,6 +3,7 @@ backup/
 datasets/ 
 slurm/
 __pycache__/ 
+feature_eval/data/ 
 # *.txt 
 # *.sh 
 # *.yml
