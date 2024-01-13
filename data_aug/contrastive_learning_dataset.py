@@ -217,7 +217,7 @@ class ContrastiveLearningDataset:
                                                                   variantB=self.args.variantB,
                                                                   standard_transform=self.standard_transform(32)
                                                                   ),
-                                                              download=False)
+                                                              download=True)
                                                               }
 
         try:
