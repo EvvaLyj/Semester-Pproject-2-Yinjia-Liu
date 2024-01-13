@@ -25,7 +25,6 @@ Folders
 
 # How to implement the experiments?
 ## Pre-train the encoder
-* Create a `datasets` folder under the main path. 
 * Run the shell script to pre-train the encoder according to the argument settings (There are two example shell scripts, `runA.sh` and `runB.sh`).
 ## Linear evaluation
 * When the training is finished, copy the configuration file (e.g., config.yml) and the encoder checkpoint (e.g., exp_resnet18_amp_gm_v1_b_256_e_1000_ckp.pth.tar) to the `feature_eval/folder` folder.
