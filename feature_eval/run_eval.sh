@@ -9,7 +9,7 @@
 # source activate simclr
 export LD_LIBRARY_PATH=/scratch_net/biwidl206/yinjliu/miniconda3/lib:$LD_LIBRARY_PATH
 python run_eval.py --eval-epochs 500 \
-                    --eval-download False \
+                    --eval-download True \
                     --projectname simclr_eval \
                     --folder folder \
 

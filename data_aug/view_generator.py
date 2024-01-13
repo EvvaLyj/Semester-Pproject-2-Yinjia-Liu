@@ -52,11 +52,11 @@ class ContrastiveLearningViewGenerator(object):
         # Combine B
         elif(self.n_views==4):
             if(np.isclose(self.p,1)):
-                x_transform_2 = [self.base_transform_default(x) for i in range(2)]
+                x_transform_2 = [self.standard_transform(x) for i in range(2)]
                 x_transform_4 = [self.our_transform(x) for x in x_transform_2 for i in range(2)]
             else:
-                x_transform_A = self.base_transform_default(x)
-                x_transform_B = self.base_transform_default(x)
+                x_transform_A = self.standard_transform(x)
+                x_transform_B = self.standard_transform(x)
                 x_transform_4 = []
                 x_transform_4.append(self.our_transform(x_transform_A))
                 x_transform_4.append(self.our_transform(x_transform_B))

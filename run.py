@@ -74,6 +74,10 @@ parser.add_argument('--projectname', type=str)
 parser.add_argument('--max-coeff-phs', type=float, default=0.5)
 parser.add_argument('--max-coeff-amp', type=float, default=0.5)
 
+parser.add_argument('--variantB', help='If 1, use a variant architecture of B method.',
+                    type=int, default=0)
+
+
 
 def main():
     args = parser.parse_args()

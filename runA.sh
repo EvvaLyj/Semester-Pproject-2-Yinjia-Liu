@@ -14,11 +14,9 @@ python run.py \
     -dataset-name cifar10 \
     --epochs 1000  \
     --warmup-epoch 10 \
-    --aug-type amp_gm_v1_phs_TI_square_control \
+    --aug-type amp_gm_v1 \
     --use-simclr 1 \
     --use-fftclr 1 \
     --prob-transform 0.5 \
-    --max-coeff-amp 0.5 \
-    --max-coeff-phs 0.5 \
     --seed 229 \
     --projectname simclrA \

@@ -70,9 +70,14 @@ parser.add_argument('--use-simclr', default=0, type=int)
 parser.add_argument('--use-fftclr', default=1, type=int)
 parser.add_argument('--projectname', type=str)
 
+
 # if use aug_type is xx_control, add the following hyperparameters
 parser.add_argument('--max-coeff-phs', type=float, default=0.5)
 parser.add_argument('--max-coeff-amp', type=float, default=0.5)
+
+parser.add_argument('--variantB', help='If 1, use a variant architecture of B method.',
+                    type=int, default=0)
+
 
 parser.add_argument('--ckp-path', type=str)
 

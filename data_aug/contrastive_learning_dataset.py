@@ -33,8 +33,20 @@ class ContrastiveLearningDataset:
         self.aug_type = aug_type
         self.args = kwargs['args']
         
-    def get_our_transform(self):
-        if(self.aug_type=="none"):
+    def get_our_transform(self, size, s=1):  
+        if(self.aug_type=="default"):
+            s=1
+            color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
+            data_transforms = transforms.Compose([
+                transforms.RandomResizedCrop(size=size),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomApply([color_jitter], p=0.8),
+                transforms.RandomGrayscale(p=0.2),
+                GaussianBlur(kernel_size=int(0.1 * size)),
+                transforms.ToTensor(),
+                transforms.Normalize(cifar10_mean, cifar10_std)
+                ])
+        elif(self.aug_type=="none"):
             data_transforms = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize(cifar10_mean, cifar10_std)
@@ -199,7 +211,7 @@ class ContrastiveLearningDataset:
     def get_dataset(self, name, n_views, p):
         valid_datasets = {'cifar10': lambda: datasets.CIFAR10(self.root_folder, train=True,
                                                               transform=ContrastiveLearningViewGenerator(
-                                                                  self.get_our_transform(),
+                                                                  self.get_our_transform(32),
                                                                   n_views, 
                                                                   p, 
                                                                   variantB=self.args.variantB,
