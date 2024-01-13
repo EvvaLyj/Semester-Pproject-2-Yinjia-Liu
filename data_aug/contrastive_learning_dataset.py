@@ -35,7 +35,6 @@ class ContrastiveLearningDataset:
         
     def get_our_transform(self, size, s=1):  
         if(self.aug_type=="default"):
-            s=1
             color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
             data_transforms = transforms.Compose([
                 transforms.RandomResizedCrop(size=size),

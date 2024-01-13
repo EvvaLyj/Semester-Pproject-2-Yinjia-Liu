@@ -16,6 +16,7 @@ parser.add_argument('-data', metavar='DIR', default='./datasets',
                     help='path to dataset')
 parser.add_argument('-aug', '--aug-type', default='none', type=str,
                     help='data augmentation type', choices=['none', 
+                                                            'default',
                                                             'amp_gm_v1', 'amp_gm_v1_control',
                                                             'amp_gm_v5', 
                                                             'amp_GED',
